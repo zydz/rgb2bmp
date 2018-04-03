@@ -106,6 +106,9 @@ void usage()
 	printf("-r Reverse rows \n");
 	printf("-p <input pixel format> 2:RGB565 little endian, 3:RGB565 big endian \n");	
 	printf("-i Invert color\n");
+	printf("-s seek, which point read rgb file from by bytes.\n");
+	printf("-w width\n");
+	printf("-h height\n");
 	printf("e.g.\n\t$ rgb2bmp -f mylogo.dat -r -p 2\n\n");
 }
 
@@ -114,6 +117,9 @@ static int sDumpFlag = 0;
 static int sPixelFormat = 2;  // 0x01:monochrome, 0x02:RGB565 little endian, 0x03:RGB565 big endian
 static int sInvert2bpp = 0;
 static int sPrintBmpHdr = 0;
+static int sSeekByte = 0;
+static int sWidth=1920;
+static int sHeight=1080;
 
 typedef struct tagPixelStruct {
 	int id;
@@ -170,7 +176,17 @@ int main(int argc, char *argv[])
 			case 'z':
 				sPrintBmpHdr = 1;
 				break;
-			case '?':
+
+            case 's':
+                sSeekByte = atoi(optarg);
+                break;
+            case 'w':
+                sWidth = atoi(optarg);
+                break;
+            case 'h':
+                sHeight= atoi(optarg);
+                break;
+            case '?':
 			default:
 				usage();
 		}
@@ -273,7 +289,7 @@ int WriteBmpFile(char *infilename, char *outfilename)
 		return 1;
 	}
 
-	if(Create24bppBmp(fp, fpout, 100, 100)) {
+	if(Create24bppBmp(fp, fpout, 1920, 1080)) {
 		fprintf(stderr, "Conversion failed: %s\n", infilename);
 		fclose(fp);
 		return 1;
@@ -385,15 +401,29 @@ int Create24bppBmp(FILE *fpin, FILE *fpout, int width, int height)
 		fprintf(stderr, "Error writing header");
 	}
 
+    printf("sizeof()=%d\n", sizeof(BMPHEAD));
+
 	// temp buffers
 	imagebuffer = malloc(image_size);
 	linepos = imagebuffer;
 	line24buffer = malloc(line24size);
 	line16buffer = malloc(line16size);
 
+#if 1 //az
+    if (sSeekByte==0)
+        sSeekByte=17;//strlen("P6\n1920 1080\n255\n");
+    fseek(fpin, sSeekByte, SEEK_SET);
+#endif
+
 	for(i=0; i<height; i++) {
 		memset(line16buffer, 0, line16size);
 		memset(line24buffer, 0, line24size);
+#if 1 //read PNG file
+		if(fread(line24buffer, 1, line24size, fpin) != (size_t)line24size) {
+			fprintf(stderr, "Error fread\n");
+		}
+
+#else
 		// read sinle line from RGB565 data file
 		if(fread(line16buffer, 1, line16_x, fpin) != (size_t)line16_x) {
 			fprintf(stderr, "Error fread\n");
@@ -401,6 +431,7 @@ int Create24bppBmp(FILE *fpin, FILE *fpout, int width, int height)
 		// copy from 16bpp RGB565 line to 24bpp RGB888 line
 		Rgb565To888(width, line24buffer, line24size, line16buffer, line16size, (sPixelFormat == 3));
 
+#endif
 		// WIN BMP puts bitmaps reverse line order
 		row_num = sReverseRowFlag ? (height - 1 - i) : (i);
 

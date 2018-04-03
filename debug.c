@@ -26,7 +26,7 @@ void dbgMsg(const char *szFile, int line, const char *szFunc, const char *szForm
 {
 	char szText[256];
 
-	vsprintf(szText, szFormat, (char *)(&szFormat + 1));
+	sprintf(szText, szFormat, (char *)(&szFormat + 1));
 	strtok(szText, "\n");
 	fprintf(stderr, "%s %s @%s:%d\n", szText, szFunc, (strrchr(szFile,'/') ? strrchr(szFile,'/')+1 : szFile), line);
 }
